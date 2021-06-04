@@ -27,7 +27,6 @@ struct Command {
   int _openOptions;
 
   void prompt();
-  void print();
   void execute();
   void clear();
 

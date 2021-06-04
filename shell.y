@@ -34,7 +34,6 @@ command:
 
 simple_command:	
 	pipe_list iomodifier_list background_opt NEWLINE {
-		printf("YACC: Execute command\n");
 		Command::_currentCommand.execute();
 	}
 	| NEWLINE { 
@@ -63,17 +62,14 @@ arg_list:
 
 argument:
 	WORD {
-		printf("YACC: Insert argument \"%s\"\n", $1);
-	    Command::_currentSimpleCommand->insertArgument($1);
+	  Command::_currentSimpleCommand->insertArgument($1);
 	}
 	;
 
 command_word:
 	WORD {
-		printf("YACC: Insert command \"%s\"\n", $1);
-
-	    Command::_currentSimpleCommand = new SimpleCommand();
-	    Command::_currentSimpleCommand->insertArgument($1);
+    Command::_currentSimpleCommand = new SimpleCommand();
+    Command::_currentSimpleCommand->insertArgument($1);
 	}
 	;
 
@@ -84,13 +80,11 @@ iomodifier_list:
 
 iomodifier:
 	GREATGREAT WORD {
-		printf("YACC: Insert output \"%s\"\n", $2);
 		// append stdout to file
 		Command::_currentCommand._openOptions = O_WRONLY | O_CREAT;
 		Command::_currentCommand._outFile = $2;
 	}
 	| GREAT WORD {
-		printf("YACC: Insert output \"%s\"\n", $2);
 		// rewrite the file if it already exists
 		Command::_currentCommand._openOptions = O_WRONLY | O_CREAT | O_TRUNC;
 		Command::_currentCommand._outFile = $2;
@@ -110,7 +104,6 @@ iomodifier:
 
 	}
 	| LESS WORD {
-		printf("YACC: Insert input \"%s\"\n", $2);
 		Command::_currentCommand._inputFile = $2;
 	} 
 	;
@@ -126,5 +119,5 @@ background_opt:
 
 void yyerror(const char * s)
 {
-	fprintf(stderr,"%s", s);
+	fprintf(stderr, "%s", s);
 }

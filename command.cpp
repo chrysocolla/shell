@@ -1,7 +1,9 @@
 #include "command.h"
 #include <ctype.h>
 #include <fcntl.h>
+#include <limits.h>
 #include <math.h>
+#include <pwd.h>
 #include <signal.h>
 #include <stdio.h>
 #include <stdlib.h>
@@ -84,36 +86,12 @@ void Command::clear() {
   _background = 0;
 }
 
-void Command::print() {
-  printf("\n---------------------------------------------------------\n");
-  printf("COMMAND TABLE\n");
-  printf("Simple Commands: \n");
-  for (int i = 0; i < _numberOfSimpleCommands; i++) {
-    printf("%d- ", i);
-    for (int j = 0; j < _simpleCommands[i]->_numberOfArguments; j++) {
-      printf("\"%s\" ", _simpleCommands[i]->_arguments[j]);
-    }
-    printf("\n");
-  }
-
-  printf("\n");
-  printf("Output: %s\n", _outFile ? _outFile : "Default");
-  printf("Input: %s\n", _inputFile ? _inputFile : "Default");
-  printf("Error: %s\n", _errFile ? _errFile : "Default");
-  printf("Background: %s\n", _background ? "YES" : "NO");
-  printf("---------------------------------------------------------\n");
-  printf("\n");
-}
-
 void Command::execute() {
   // nothing if no simple commands
   if (_numberOfSimpleCommands == 0) {
     prompt();
     return;
   }
-
-  // print command data structure
-  print();
 
   // save stdin / stdout / stderr
   int tempIn = dup(0);
@@ -130,7 +108,7 @@ void Command::execute() {
 
   int i;
   int fdOut;
-  pid_t child = 0;
+  pid_t child = 1;
   for (i = 0; i < _numberOfSimpleCommands; i++) {
     // redirect input and close fdIn since we're done with it
     dup2(fdIn, 0);
@@ -159,163 +137,36 @@ void Command::execute() {
     close(fdOut); // close fdOut since we're done with it
 
     // check for special commands
-    if (!strcmp(_simpleCommands[i]->_arguments[0], "bye") ||
-        !strcmp(_simpleCommands[i]->_arguments[0], "exit") ||
-        !strcmp(_simpleCommands[i]->_arguments[0], "quit")) { // exit
+    if (!strcmp(_simpleCommands[i]->_arguments[0], "exit")) { // exit
       exit(1);
     } else if (!strcmp(_simpleCommands[i]->_arguments[0], "cd")) {
-      if (_simpleCommands[i]->_numberOfArguments != 2) {
-        fprintf(stderr, "%s", "Invalid number of arguments\n");
+      char *target;
+      if (_simpleCommands[i]->_numberOfArguments == 1) {
+        struct passwd *pw = getpwuid(geteuid());
+        target = pw->pw_dir;
+      } else if (_simpleCommands[i]->_numberOfArguments == 2) {
+        target = _simpleCommands[i]->_arguments[1];
       } else {
-        int ret = chdir(_simpleCommands[i]->_arguments[1]);
-        if (ret) {
-          // chdir failed, perror it
-          perror("cd");
-        }
+        fprintf(stderr, "%s", "Invalid number of arguments\n");
+        continue;
       }
-      child = 1;
+      int ret = chdir(target);
+      if (ret) {
+        // chdir failed, perror it
+        perror("cd");
+      } else {
+        char cwd[PATH_MAX];
+        if (getcwd(cwd, sizeof(cwd)) != NULL)
+          setenv("PWD", cwd, 1);
+      }
       continue;
     } else if (!strcmp(_simpleCommands[i]->_arguments[0], "help")) {
       // ignore args
       fprintf(stdout, "%s",
-              "Builtin commands:\n  cd: change directory\n"
-              "  exit/bye/quit: to quit shell\n  isleap: check if year is leap "
-              "year\n"
-              "  op: op followed by 2 operands followed by +,-,*,/,%,A,R,X\n"
-              "  trignometry op: tri followed by 1 operand in radiands "
-              "followed by s,c,t\n"
-              "  day: find day. give date in dd mm yyyy\n"
-              "  pic: Take a pic (on ubuntu. use at own risk xd)\n"
-              "  hello: say hello\n"
+              "Builtin commands:\n"
+              "  cd: change directory\n"
+              "  exit: to quit shell\n"
               "  help: to view this message\n");
-      child = 1;
-      continue;
-    } else if (!strcmp(_simpleCommands[i]->_arguments[0], "hello")) {
-      // ignore args
-      char *user = getenv("USER");
-      printf("hello %s. havin a good day? \n", user);
-      child = 1;
-      continue;
-    } else if (!strcmp(_simpleCommands[i]->_arguments[0], "pic")) {
-      // use this to flex on someone
-      system("sudo apt-get install fswebcam");
-      system("fswebcam -r 640x480 --jpeg 85 -F 50 -D 1 stdout");
-      system("eog stdout");
-      child = 1;
-      continue;
-    } else if (!strcmp(_simpleCommands[i]->_arguments[0], "op")) {
-      // op 6 7 + of this type
-      if (_simpleCommands[i]->_numberOfArguments != 4) {
-        fprintf(stderr, "%s",
-                "Invalid number of arguments\nUse help to know usage\n");
-      } else {
-        if (!isdigit(_simpleCommands[i]->_arguments[1][0]) ||
-            !isdigit(_simpleCommands[i]->_arguments[2][0])) {
-          fprintf(stderr, "%s", "Invalid operands!\n");
-          break;
-        }
-        double a = atoi(_simpleCommands[i]->_arguments[1]);
-        double b = atoi(_simpleCommands[i]->_arguments[2]);
-        switch (_simpleCommands[i]->_arguments[3][0]) {
-        case '+':
-          printf("addition gives: %.2f\n", a + b);
-          break;
-        case '-':
-          printf("subtraction gives: %.2f\n", a - b);
-          break;
-        case '*':
-          printf("multiplication gives: %.2f\n", a * b);
-          break;
-        case '/':
-          printf("division gives: %.2f\n", a / b);
-          break;
-        case '%':
-          printf("reminder gives: %.2f\n", (double)((int)a % (int)b));
-          break;
-        case 'A':
-          printf("AND op gives: %.2f\n", (double)((int)a & (int)b));
-          break;
-        case 'R':
-          printf("OR op gives: %.2f\n", (double)((int)a | (int)b));
-          break;
-        case 'X':
-          printf("XOR op gives: %.2f\n", (double)((int)a ^ (int)b));
-          break;
-        default:
-          printf("Invalid operation!\n");
-        }
-      }
-      child = 1;
-      continue;
-    } else if (!strcmp(_simpleCommands[i]->_arguments[0], "day")) {
-      if (_simpleCommands[i]->_numberOfArguments != 4) {
-        fprintf(stderr, "%s", "Invalid date format\nUse help to know usage\n");
-      } else {
-        if (!isdigit(_simpleCommands[i]->_arguments[1][0]) ||
-            !isdigit(_simpleCommands[i]->_arguments[2][0]) ||
-            !isdigit(_simpleCommands[i]->_arguments[3][0])) {
-          fprintf(stderr, "%s", "Invalid date !\n");
-          break;
-        }
-        int d = atoi(_simpleCommands[i]->_arguments[1]);
-        int m = atoi(_simpleCommands[i]->_arguments[2]);
-        int y = atoi(_simpleCommands[i]->_arguments[3]);
-        char w[][10] = {"Sunday",   "Monday", "Tuesday", "Wednesday",
-                        "Thursday", "Friday", "Saturday"};
-        int t[] = {0, 3, 2, 5, 0, 3, 5, 1, 4, 6, 2, 4};
-        y -= m < 3;
-        int j = (y + y / 4 - y / 100 + y / 400 + t[m - 1] + d) % 7;
-        printf("%d/%d/%d comes on a %s\n", d, m, y, w[j]);
-      }
-
-      child = 1;
-      continue;
-    } else if (!strcmp(_simpleCommands[i]->_arguments[0], "tri")) {
-      if (_simpleCommands[i]->_numberOfArguments != 3) {
-        fprintf(stderr, "%s",
-                "Invalid number of arguments\nUse help to know usage\n");
-      } else {
-        if (!isdigit(_simpleCommands[i]->_arguments[1][0])) {
-          fprintf(stderr, "%s", "Invalid operand!\n");
-          break;
-        }
-        double a = atoi(_simpleCommands[i]->_arguments[1]);
-        switch (_simpleCommands[i]->_arguments[2][0]) {
-        case 's':
-          printf("sin(%.2f rad) gives: %.2f\n", a, sin(a));
-          break;
-        case 'c':
-          printf("cos(%.2f rad) gives: %.2f\n", a, cos(a));
-          break;
-        case 't':
-          printf("tan(%.2f rad) gives: %.2f\n", a, tan(a));
-          break;
-        default:
-          printf("Invalid operation!\n");
-        }
-      }
-      child = 1;
-      continue;
-    } else if (!strcmp(_simpleCommands[i]->_arguments[0], "isleap")) {
-      // convert args into int and check
-      if (_simpleCommands[i]->_numberOfArguments < 2) {
-        fprintf(stderr, "%s", "Invalid number of arguments\n");
-      } else {
-        for (int j = 1; j < _simpleCommands[i]->_numberOfArguments; j++) {
-          int year = atoi(_simpleCommands[i]->_arguments[j]);
-          if (!year) {
-            // invalid input - a string
-            printf("%s is not a year!\n", _simpleCommands[i]->_arguments[j]);
-            continue;
-          }
-          if ((year % 4 == 0) && (year % 100 != 0 || year % 400 == 0)) {
-            printf("%d is a leap year.\n", year);
-          } else {
-            printf("%d is not a leap year.\n", year);
-          }
-        }
-      }
-      child = 1;
       continue;
     } else {
       // else we fork!
@@ -356,7 +207,20 @@ void Command::execute() {
 }
 
 void Command::prompt() {
-  printf("> ");
+  char hostname[HOST_NAME_MAX + 1];
+  gethostname(hostname, HOST_NAME_MAX + 1);
+  char cwd[PATH_MAX];
+  char *cwd_ptr = cwd;
+  getcwd(cwd, sizeof(cwd));
+  uid_t euid = geteuid();
+  struct passwd *pw = getpwuid(euid);
+  size_t homedir_len = strlen(pw->pw_dir);
+  if (pw->pw_dir != NULL && !strncmp(cwd, pw->pw_dir, homedir_len)) {
+    cwd[homedir_len - 1] = '~';
+    cwd_ptr += homedir_len - 1;
+  }
+  printf("[%s@%s %s]%c ", pw->pw_name, hostname, cwd_ptr,
+         euid == 0 ? '#' : '$');
   fflush(stdout);
 }
 
