@@ -67,7 +67,7 @@ iomodifier_list : iomodifier_list iomodifier
 
 iomodifier      : GREATGREAT WORD {
                   // append stdout to file
-                  Command::_currentCommand._openOptions = O_WRONLY | O_CREAT;
+                  Command::_currentCommand._openOptions = O_WRONLY | O_CREAT | O_APPEND;
                   Command::_currentCommand._outFile = $2;
                 }
                 | GREAT WORD {
@@ -77,7 +77,7 @@ iomodifier      : GREATGREAT WORD {
                 }
                 | GREATGREATAMPERSAND WORD {
                   // redirect stdout and stderr to file and append
-                  Command::_currentCommand._openOptions = O_WRONLY | O_CREAT;
+                  Command::_currentCommand._openOptions = O_WRONLY | O_CREAT | O_APPEND;
                   Command::_currentCommand._outFile = $2;
                   Command::_currentCommand._errFile = $2;
 
