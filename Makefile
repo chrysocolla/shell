@@ -1,7 +1,7 @@
 cc = gcc -g
 CC = g++ -g
 
-LEX = lex
+LEX = flex
 YACC = yacc
 
 all: shell
