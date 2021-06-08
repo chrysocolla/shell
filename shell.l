@@ -17,11 +17,11 @@
 ">>&" { return GREATGREATAMPERSAND; }
 "<"   { return LESS; }
 "|"   { return PIPE; }
-"&" { return AMPERSAND; }
+"&"   { return AMPERSAND; }
 
 \"[^\n\"]*\" {
   // handle arguments in quotes by stripping the quotes
-  yytext = (char*)(yytext+1); // drop the front quotes
+  yytext = (char*)(yytext + 1); // drop the front quotes
   yytext[strlen(yytext) - 1] = '\0'; // drop the end quotes
   yylval.string_val = strdup(yytext);
   return WORD;
