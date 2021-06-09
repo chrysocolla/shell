@@ -11,7 +11,7 @@ lex.yy.c: shell.l
 
 y.tab.c: shell.y
 	$(YACC) -d shell.y
-	
+
 shell: lex.yy.c y.tab.c command.cpp
 	$(CC) -o shell lex.yy.c y.tab.c command.cpp
 
